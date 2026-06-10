@@ -439,16 +439,20 @@
   var PostGame = {
     state: null,
     selectedIndex: null,
+    selectedTrendId: null,
 
-    init: function (state) {
+    init: function (state, trending) {
       this.state = state;
+      this.trending = trending;
       this.bodyEl = document.querySelector(".view__body--post");
       this.formEl = document.querySelector("[data-post-form]");
       this.listEl = document.querySelector("[data-hook-list]");
       this.submitEl = document.querySelector("[data-post-submit]");
       this.lockedEl = document.querySelector("[data-post-locked]");
+      this.trendEl = document.querySelector("[data-post-trends]");
 
       this.renderHooks();
+      this.renderTrends();
       this.bindNiche();
       this.bindForm();
 
@@ -457,6 +461,13 @@
       state.subscribe(function (path) {
         if (path === "player.energy") self.refresh();
       });
+
+      // Refresh the trend chips whenever trends reroll.
+      if (trending) {
+        trending.onReroll(function () {
+          self.renderTrends();
+        });
+      }
 
       this.refresh();
       return this;
@@ -533,6 +544,46 @@
       this.refresh();
     },
 
+    // Render the optional "ride a trend" chips from active trends.
+    renderTrends: function () {
+      if (!this.trendEl || !this.trending) return;
+      var self = this;
+      var active = this.trending.getActive();
+
+      // Drop a stale selection if that trend is no longer active.
+      if (this.selectedTrendId && !this.trending.isActive(this.selectedTrendId)) {
+        this.selectedTrendId = null;
+      }
+
+      this.trendEl.innerHTML = "";
+      active.forEach(function (trend) {
+        var chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "trend-chip";
+        chip.classList.toggle("is-active", trend.id === self.selectedTrendId);
+        chip.setAttribute("data-trend-id", trend.id);
+        chip.innerHTML =
+          '<span class="trend-chip__topic">#' +
+          trend.topic.replace(/[^a-zA-Z0-9]+/g, "") +
+          '</span><span class="trend-chip__boost">3x</span>';
+        chip.addEventListener("click", function () {
+          self.selectTrend(trend.id);
+        });
+        self.trendEl.appendChild(chip);
+      });
+    },
+
+    // Toggle a trend on/off (selecting one deselects the rest).
+    selectTrend: function (id) {
+      this.selectedTrendId = this.selectedTrendId === id ? null : id;
+      var chips = this.trendEl.querySelectorAll(".trend-chip");
+      var self = this;
+      chips.forEach(function (chip) {
+        var cid = Number(chip.getAttribute("data-trend-id"));
+        chip.classList.toggle("is-active", cid === self.selectedTrendId);
+      });
+    },
+
     bindNiche: function () {
       var self = this;
       var chips = document.querySelectorAll("[data-niche-chips] .chip");
@@ -571,10 +622,18 @@
       var hook = HOOKS[this.selectedIndex];
       var mods = this.nicheModifiers();
 
+      // --- Trend boost: riding an active trend grants 3.0x viral ---
+      var ridingTrend =
+        this.trending && this.selectedTrendId
+          ? this.trending.findById(this.selectedTrendId)
+          : null;
+      var trendBoost = ridingTrend ? TREND_MULTIPLIER : 1.0;
+
       // --- Reach + engagement math ---
       var baseReach = Math.max(p.followers * 0.1, 100);
       var rng = Math.random() * (1.2 - 0.8) + 0.8; // 0.8 .. 1.2
-      var viewResult = baseReach * hook.viralMultiplier * mods.engagement * rng;
+      var viewResult =
+        baseReach * hook.viralMultiplier * trendBoost * mods.engagement * rng;
       var followersGained = Math.round(viewResult * 0.05);
 
       // --- Controversy check ---
@@ -605,10 +664,13 @@
         backlash: backlash,
         mentalLoss: mentalLoss,
         repLoss: repLoss,
+        trend: ridingTrend,
       });
 
       // Reset selection for the next post.
       this.selectedIndex = null;
+      this.selectedTrendId = null;
+      this.renderTrends();
       var checked = this.formEl.querySelector("input:checked");
       if (checked) checked.checked = false;
       this.listEl
@@ -620,11 +682,17 @@
     },
 
     showResult: function (r) {
-      var rows = [
-        { label: "\uD83D\uDC41 Views gained", value: "+" + fmt(r.viewResult), type: "gain" },
-        { label: "\uD83D\uDC65 Followers gained", value: "+" + fmt(r.followersGained), type: "gain" },
-        { label: "\u26A1 Energy spent", value: "-" + POST_ENERGY_COST, type: "loss" },
-      ];
+      var rows = [];
+      if (r.trend) {
+        rows.push({
+          label: "\uD83D\uDD25 Trend boost",
+          value: "x" + TREND_MULTIPLIER.toFixed(1),
+          type: "gain",
+        });
+      }
+      rows.push({ label: "\uD83D\uDC41 Views gained", value: "+" + fmt(r.viewResult), type: "gain" });
+      rows.push({ label: "\uD83D\uDC65 Followers gained", value: "+" + fmt(r.followersGained), type: "gain" });
+      rows.push({ label: "\u26A1 Energy spent", value: "-" + POST_ENERGY_COST, type: "loss" });
 
       if (r.backlash) {
         rows.push({ label: "\uD83E\uDDE0 Mental Health", value: "-" + r.mentalLoss, type: "loss" });
@@ -632,10 +700,12 @@
       }
 
       Modal.show({
-        emoji: r.backlash ? "\uD83D\uDD25" : "\uD83D\uDE80",
-        title: r.backlash ? "Backlash!" : "Post Published!",
+        emoji: r.backlash ? "\uD83D\uDD25" : r.trend ? "\uD83D\uDCC8" : "\uD83D\uDE80",
+        title: r.backlash ? "Backlash!" : r.trend ? "You're Trending!" : "Post Published!",
         subtitle: r.backlash
           ? "Your hot take stirred the pot. The comments are brutal."
+          : r.trend
+          ? "Riding " + r.trend.topic + " sent your reach soaring."
           : "Your content is making the rounds.",
         backlash: r.backlash,
         rows: rows,
@@ -682,6 +752,14 @@
   var RATING_DROP = 0.2; // negative review damage
   var RATING_RESTORE = 0.3; // recovered on dispute resolve
   var NEGATIVE_REVIEW_CHANCE = 0.05; // 5% per tick
+
+  // Content systems
+  var TREND_CYCLE_HOURS = 24; // reroll trends every 24 in-game hours
+  var TREND_COUNT = 3; // active trends at a time
+  var TREND_MULTIPLIER = 3.0; // viral boost when a post rides a trend
+  var FEED_INITIAL_POSTS = 6; // posts rendered on first Home load
+  var FEED_BATCH = 3; // posts appended per infinite-scroll fetch
+  var FEED_SCROLL_THRESHOLD = 320; // px from bottom that triggers a fetch
 
   // Brand pool for procedurally generated sponsorship offers.
   var BRAND_POOL = [
@@ -1281,7 +1359,309 @@
   };
 
   /* ===========================================================
-   * 16. BOOTSTRAP
+   * 16. TRENDING SYSTEM (Search / Explore tab)
+   * ===========================================================
+   * Every TREND_CYCLE_HOURS in-game hours, reroll 3 trending
+   * topics from a categorised database. A post that "rides" an
+   * active trend gets a TREND_MULTIPLIER viral boost.
+   */
+  var TREND_DB = {
+    "Finance / Trading": [
+      "Aster Network breakout analysis",
+      "SUI token drop",
+      "BTEK technical analysis",
+    ],
+    "Law / Civics": [
+      "Sidang Mahkamah Konstitusi update",
+      "Analisis Astagatra dan Ketahanan Nasional",
+    ],
+    "Gaming / Sports": [
+      "Football Manager 2024 broken tactics",
+      "F1 Manager 24 setup guide",
+    ],
+  };
+
+  // Flatten the DB into a pool of { topic, category } entries.
+  var TREND_POOL = (function () {
+    var pool = [];
+    Object.keys(TREND_DB).forEach(function (category) {
+      TREND_DB[category].forEach(function (topic) {
+        pool.push({ topic: topic, category: category });
+      });
+    });
+    return pool;
+  })();
+
+  var TrendingSystem = {
+    state: null,
+    active: [],
+    hours: 0,
+    _nextId: 1,
+    _rerollListeners: [],
+
+    init: function (state) {
+      this.state = state;
+      this.gridEl = document.querySelector("[data-trend-grid]");
+      this.reroll(); // seed an initial set at hour 0
+      return this;
+    },
+
+    onReroll: function (fn) {
+      this._rerollListeners.push(fn);
+      return this;
+    },
+
+    // Engine tick handler: advance the clock, reroll on cycle.
+    tick: function () {
+      this.hours += 1;
+      if (this.hours % TREND_CYCLE_HOURS === 0) {
+        this.reroll();
+      }
+    },
+
+    // Pick TREND_COUNT distinct topics at random.
+    reroll: function () {
+      var copy = TREND_POOL.slice();
+      var picked = [];
+      var n = Math.min(TREND_COUNT, copy.length);
+      for (var i = 0; i < n; i++) {
+        var idx = Math.floor(Math.random() * copy.length);
+        var entry = copy.splice(idx, 1)[0];
+        picked.push({
+          id: this._nextId++,
+          topic: entry.topic,
+          category: entry.category,
+          heat: Math.floor(Math.random() * 400) + 50, // 50k-450k posts
+        });
+      }
+      this.active = picked;
+      this.render();
+      this._rerollListeners.forEach(function (fn) {
+        fn(picked);
+      });
+    },
+
+    getActive: function () {
+      return this.active;
+    },
+
+    isActive: function (id) {
+      return this.active.some(function (t) {
+        return t.id === id;
+      });
+    },
+
+    findById: function (id) {
+      return this.active.filter(function (t) {
+        return t.id === id;
+      })[0];
+    },
+
+    // Deterministic gradient per topic for the thumbnail.
+    gradientFor: function (topic) {
+      var hash = 0;
+      for (var i = 0; i < topic.length; i++) {
+        hash = (hash << 5) - hash + topic.charCodeAt(i);
+        hash |= 0;
+      }
+      var h1 = Math.abs(hash) % 360;
+      var h2 = (h1 + 40) % 360;
+      return (
+        "linear-gradient(135deg, hsl(" +
+        h1 +
+        ",70%,55%), hsl(" +
+        h2 +
+        ",75%,42%))"
+      );
+    },
+
+    render: function () {
+      if (!this.gridEl) return;
+      var self = this;
+      this.gridEl.innerHTML = "";
+
+      this.active.forEach(function (trend) {
+        var cell = document.createElement("article");
+        cell.className = "trend";
+        cell.style.backgroundImage = self.gradientFor(trend.topic);
+
+        var overlay = document.createElement("div");
+        overlay.className = "trend__overlay";
+
+        var cat = document.createElement("span");
+        cat.className = "trend__category";
+        cat.textContent = trend.category;
+
+        var topic = document.createElement("span");
+        topic.className = "trend__topic";
+        topic.textContent = trend.topic;
+
+        var heat = document.createElement("span");
+        heat.className = "trend__heat";
+        heat.textContent = "\uD83D\uDD25 " + fmt(trend.heat) + "K posts";
+
+        overlay.appendChild(cat);
+        overlay.appendChild(topic);
+        overlay.appendChild(heat);
+        cell.appendChild(overlay);
+        self.gridEl.appendChild(cell);
+      });
+    },
+  };
+
+  /* ===========================================================
+   * 17. PROCEDURAL FEED (Home tab + infinite scroll)
+   * ===========================================================
+   * Generates an endless stream of rival-influencer NPC posts.
+   */
+  var NPC_NAMES = [
+    "lifewithmaya", "thefitzone", "crypto.danny", "chef_ramzi",
+    "wanderlust.kai", "techbyleo", "studio.aria", "the.daily.grind",
+    "footy.tactics", "minimal.nina", "raw.frames", "urban.echo",
+    "the_quietcoder", "saltandsugar", "midnight.motors",
+  ];
+
+  var NPC_CAPTIONS = [
+    "New drop just landed. Thoughts? \uD83D\uDC40",
+    "POV: you finally hit your goal after months of grind.",
+    "Spent all weekend on this. Worth it.",
+    "Saving this one for later. Trust me.",
+    "Nobody talks about this enough.",
+    "Day 47 of documenting the journey.",
+    "Underrated spot, don't tell everyone \uD83E\uDD2B",
+    "This took 3 tries to get right.",
+    "Honestly didn't expect this result.",
+    "Drop a \uD83D\uDD25 if you agree.",
+    "Behind the scenes of today's shoot.",
+    "Small wins still count.",
+  ];
+
+  var FeedSystem = {
+    state: null,
+
+    init: function (state, trending) {
+      this.state = state;
+      this.trending = trending;
+      this.scrollEl = document.querySelector("[data-home-scroll]");
+      this.feedEl = document.querySelector("[data-home-feed]");
+      this.loaderEl = document.querySelector("[data-home-loader]");
+      this._loading = false;
+
+      this.appendPosts(FEED_INITIAL_POSTS);
+      this.bindScroll();
+      return this;
+    },
+
+    rand: function (arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    },
+
+    // Build a single NPC post matching the required schema.
+    generatePost: function () {
+      var username = this.rand(NPC_NAMES);
+      var hue = Math.floor(Math.random() * 360);
+      var mins = Math.floor(Math.random() * 58) + 1;
+      var time = Math.random() < 0.4 ? mins + "m" : (Math.floor(Math.random() * 23) + 1) + "h";
+
+      // Occasionally reference a live trend so the feed feels current.
+      var caption = this.rand(NPC_CAPTIONS);
+      var trends = this.trending ? this.trending.getActive() : [];
+      if (trends.length && Math.random() < 0.35) {
+        var t = trends[Math.floor(Math.random() * trends.length)];
+        caption = caption + " #" + t.topic.replace(/[^a-zA-Z0-9]+/g, "");
+      }
+
+      var likes = Math.floor(Math.random() * 48000) + 120;
+      var imgHue = (hue + 90) % 360;
+
+      var post = document.createElement("article");
+      post.className = "npc-post";
+
+      // Header: colored avatar circle + username + time
+      var header = document.createElement("header");
+      header.className = "npc-post__header";
+      header.innerHTML =
+        '<span class="npc-post__avatar" style="background:hsl(' +
+        hue +
+        ',65%,55%)">' +
+        username.charAt(0).toUpperCase() +
+        "</span>" +
+        '<span class="npc-post__user">' +
+        username +
+        "</span>" +
+        '<span class="npc-post__time">\u00B7 ' +
+        time +
+        "</span>" +
+        '<span class="npc-post__more" aria-hidden="true">\u22EF</span>';
+
+      // Image block (procedural gradient)
+      var image = document.createElement("div");
+      image.className = "npc-post__image";
+      image.style.backgroundImage =
+        "linear-gradient(135deg, hsl(" +
+        hue +
+        ",60%,60%), hsl(" +
+        imgHue +
+        ",65%,45%))";
+
+      // Action row
+      var actions = document.createElement("div");
+      actions.className = "npc-post__actions";
+      actions.innerHTML =
+        '<span class="npc-post__icon">\u2661</span>' +
+        '<span class="npc-post__icon">\uD83D\uDCAC</span>' +
+        '<span class="npc-post__icon">\u27A4</span>';
+
+      // Likes
+      var likesEl = document.createElement("p");
+      likesEl.className = "npc-post__likes";
+      likesEl.textContent = fmt(likes) + " likes";
+
+      // Caption: username (bold) + text
+      var captionEl = document.createElement("p");
+      captionEl.className = "npc-post__caption";
+      var strong = document.createElement("strong");
+      strong.textContent = username + " ";
+      captionEl.appendChild(strong);
+      captionEl.appendChild(document.createTextNode(caption));
+
+      post.appendChild(header);
+      post.appendChild(image);
+      post.appendChild(actions);
+      post.appendChild(likesEl);
+      post.appendChild(captionEl);
+      return post;
+    },
+
+    appendPosts: function (count) {
+      var frag = document.createDocumentFragment();
+      for (var i = 0; i < count; i++) {
+        frag.appendChild(this.generatePost());
+      }
+      this.feedEl.appendChild(frag);
+    },
+
+    bindScroll: function () {
+      var self = this;
+      this.scrollEl.addEventListener("scroll", function () {
+        var el = self.scrollEl;
+        var remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+        if (remaining <= FEED_SCROLL_THRESHOLD && !self._loading) {
+          self._loading = true;
+          if (self.loaderEl) self.loaderEl.classList.add("is-active");
+          // Tiny delay mimics a network fetch and avoids burst-appends.
+          setTimeout(function () {
+            self.appendPosts(FEED_BATCH);
+            self._loading = false;
+            if (self.loaderEl) self.loaderEl.classList.remove("is-active");
+          }, 220);
+        }
+      });
+    },
+  };
+
+  /* ===========================================================
+   * 18. BOOTSTRAP
    * ===========================================================
    */
   function boot() {
@@ -1313,7 +1693,11 @@
 
     // Initialise modal + post mini-game.
     Modal.init();
-    var postGame = PostGame.init(state);
+
+    // Content systems (trends must exist before the post game reads them).
+    var trending = TrendingSystem.init(state);
+    var postGame = PostGame.init(state, trending);
+    var feed = FeedSystem.init(state, trending);
 
     // Initialise late-game / negotiation subsystems.
     var negotiation = Negotiation.init(state);
@@ -1344,6 +1728,9 @@
       })
       .onTick(function (s) {
         ecommerce.tick(s);
+      })
+      .onTick(function () {
+        trending.tick();
       });
     Engine.start();
 
@@ -1356,6 +1743,8 @@
       negotiation: negotiation,
       ecommerce: ecommerce,
       tycoon: tycoon,
+      trending: trending,
+      feed: feed,
     };
   }
 
