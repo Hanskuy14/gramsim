@@ -1,0 +1,485 @@
+/* ============================================================= */
+/* Influencer Simulator - Skeuomorphic Instagram (Light Mode)    */
+/* Methodology: BEM. Layout: CSS Grid (feeds/stats) + Flexbox.   */
+/* ============================================================= */
+
+/* ----------------------- Design Tokens ----------------------- */
+:root {
+  /* Instagram Light Mode palette */
+  --ig-bg: #FAFAFA;
+  --ig-surface: #FFFFFF;
+  --ig-border: #DBDBDB;
+  --ig-blue: #0095F6;
+  --ig-blue-press: #1877F2;
+  --ig-text: #262626;
+  --ig-text-secondary: #8E8E8E;
+  --ig-grey-btn: #EFEFEF;
+  --ig-grey-btn-press: #DBDBDB;
+  --ig-danger: #ED4956;
+
+  /* Skeuomorphic gradient (story ring / avatar accent) */
+  --ig-ring: linear-gradient(45deg, #F58529, #DD2A7B, #8134AF, #515BD4);
+
+  /* Layout */
+  --app-max-width: 450px;
+  --nav-height: 50px;
+  --topbar-height: 44px;
+
+  /* Typography */
+  --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+
+  /* Elevation */
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-nav: 0 -0.5px 0 var(--ig-border);
+}
+
+/* --------------------------- Reset --------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-stack);
+  color: var(--ig-text);
+  /* Outer canvas behind the centered app on desktop */
+  background-color: #ECECEC;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+/* ========================================================= */
+/* App Shell                                                 */
+/* ========================================================= */
+.app {
+  position: relative;
+  width: 100%;
+  max-width: var(--app-max-width);
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0 auto;
+  background-color: var(--ig-bg);
+  border-left: 1px solid var(--ig-border);
+  border-right: 1px solid var(--ig-border);
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.app__views {
+  flex: 1 1 auto;
+  position: relative;
+  /* leave room for fixed bottom nav */
+  padding-bottom: var(--nav-height);
+  overflow: hidden;
+}
+
+/* ========================================================= */
+/* View / Router                                             */
+/* ========================================================= */
+.view {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+}
+
+.view.is-active {
+  display: flex;
+}
+
+.view__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.placeholder-text {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--ig-text-secondary);
+  font-size: 14px;
+}
+
+/* ========================================================= */
+/* Top Bar                                                   */
+/* ========================================================= */
+.topbar {
+  height: var(--topbar-height);
+  flex: 0 0 var(--topbar-height);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  background-color: var(--ig-surface);
+  border-bottom: 1px solid var(--ig-border);
+}
+
+.topbar__brand {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.topbar__title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.topbar--profile {
+  justify-content: space-between;
+}
+
+.topbar__user {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.topbar__lock {
+  font-size: 13px;
+}
+
+.topbar__username {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.topbar__chevron {
+  font-size: 11px;
+  color: var(--ig-text);
+}
+
+.topbar__menu {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+}
+
+/* Hamburger icon (3 stacked lines) */
+.hamburger {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 22px;
+  height: 16px;
+}
+
+.hamburger__line {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background-color: var(--ig-text);
+  border-radius: 2px;
+}
+
+/* Search bar (skeuomorphic inset field) */
+.searchbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  background-color: var(--ig-grey-btn);
+  border-radius: 10px;
+}
+
+.searchbar__icon {
+  font-size: 13px;
+  color: var(--ig-text-secondary);
+}
+
+.searchbar__input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  color: var(--ig-text);
+  outline: none;
+}
+
+/* ========================================================= */
+/* Profile Header                                            */
+/* ========================================================= */
+.view__body--profile {
+  background-color: var(--ig-bg);
+}
+
+.profile-header {
+  padding: 16px;
+}
+
+/* Avatar + Stats : CSS Grid (avatar | stats) */
+.profile-header__grid {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  align-items: center;
+  gap: 16px;
+}
+
+.profile-header__avatar {
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  padding: 3px;
+  background: var(--ig-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Verified accounts get the skeuomorphic story-ring gradient */
+.profile-header__avatar--verified {
+  background: var(--ig-ring);
+}
+
+.profile-header__avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid var(--ig-surface);
+  object-fit: cover;
+}
+
+/* Stats counters : 3-column CSS Grid */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: center;
+}
+
+.stats__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 0;
+}
+
+.stats__count {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ig-text);
+}
+
+.stats__label {
+  font-size: 13px;
+  color: var(--ig-text);
+}
+
+/* Bio */
+.profile-bio {
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.profile-bio__name {
+  font-weight: 600;
+}
+
+.profile-bio__category {
+  color: var(--ig-text-secondary);
+}
+
+.profile-bio__text {
+  margin-top: 4px;
+  color: var(--ig-text);
+}
+
+.profile-bio__mention {
+  color: var(--ig-blue);
+  font-weight: 500;
+}
+
+/* Action buttons : Flexbox row */
+.profile-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.profile-actions__btn {
+  flex: 1 1 auto;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid var(--ig-border);
+  background-color: var(--ig-surface);
+  color: var(--ig-text);
+  transition: background-color 0.12s ease;
+}
+
+.profile-actions__btn--edit {
+  flex: 1 1 60%;
+}
+
+/* Distinct subtle grey "Professional Dashboard" button */
+.profile-actions__btn--dashboard {
+  flex: 1 1 40%;
+  background-color: var(--ig-grey-btn);
+  border-color: var(--ig-grey-btn);
+}
+
+.profile-actions__btn:active {
+  background-color: var(--ig-grey-btn-press);
+}
+
+/* ========================================================= */
+/* Feed Tabs                                                 */
+/* ========================================================= */
+.feed-tabs {
+  display: flex;
+  border-top: 1px solid var(--ig-border);
+}
+
+.feed-tabs__tab {
+  flex: 1 1 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  color: var(--ig-text-secondary);
+  border-bottom: 1px solid transparent;
+}
+
+.feed-tabs__tab.is-active {
+  color: var(--ig-text);
+  border-bottom: 1px solid var(--ig-text);
+}
+
+.feed-tabs__icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* ========================================================= */
+/* Feed Grid (3 x 3) : CSS Grid                              */
+/* ========================================================= */
+.feed-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  padding-bottom: 16px;
+}
+
+.feed-grid__item {
+  position: relative;
+  width: 100%;
+  /* keep square tiles */
+  aspect-ratio: 1 / 1;
+  background-color: var(--ig-border);
+  background-image: linear-gradient(135deg, #E4E4E4 0%, #D2D2D2 100%);
+  overflow: hidden;
+}
+
+/* subtle skeuomorphic sheen on tiles */
+.feed-grid__item::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 45%);
+  pointer-events: none;
+}
+
+/* ========================================================= */
+/* Bottom Navigation : Flexbox                               */
+/* ========================================================= */
+.nav {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--nav-height);
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+  background-color: var(--ig-surface);
+  box-shadow: var(--shadow-nav);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.nav__tab {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ig-text);
+  opacity: 0.55;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.nav__tab.is-active {
+  opacity: 1;
+}
+
+.nav__tab:active {
+  transform: scale(0.92);
+}
+
+.nav__icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.nav__icon--post {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+/* Profile tab shows a tiny avatar circle */
+.nav__icon--avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--ig-ring);
+  border: 2px solid var(--ig-surface);
+}
+
+.nav__tab--profile.is-active .nav__icon--avatar {
+  box-shadow: 0 0 0 1.5px var(--ig-text);
+}
+
+/* ========================================================= */
+/* Responsive : full width on mobile, framed on desktop      */
+/* ========================================================= */
+@media (min-width: 451px) {
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .app {
+    min-height: 100vh;
+  }
+}

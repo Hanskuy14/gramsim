@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#FAFAFA" />
+  <title>Influencer Simulator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ============================================================= -->
+  <!-- App Shell : max 450px, centered on desktop, 100% on mobile    -->
+  <!-- ============================================================= -->
+  <div class="app">
+
+    <!-- ========================================================= -->
+    <!-- VIEWS : only one carries .is-active at a time             -->
+    <!-- ========================================================= -->
+    <main class="app__views">
+
+      <!-- ---------------------- HOME ----------------------------- -->
+      <section class="view view--home" data-view="home">
+        <header class="topbar">
+          <h1 class="topbar__brand">Influencer Simulator</h1>
+        </header>
+        <div class="view__body">
+          <p class="placeholder-text">Your home feed will appear here.</p>
+        </div>
+      </section>
+
+      <!-- ---------------------- SEARCH --------------------------- -->
+      <section class="view view--search" data-view="search">
+        <header class="topbar">
+          <div class="searchbar">
+            <span class="searchbar__icon" aria-hidden="true">&#128269;</span>
+            <input class="searchbar__input" type="text" placeholder="Search" disabled />
+          </div>
+        </header>
+        <div class="view__body">
+          <p class="placeholder-text">Explore trending creators here.</p>
+        </div>
+      </section>
+
+      <!-- ---------------------- POST ----------------------------- -->
+      <section class="view view--post" data-view="post">
+        <header class="topbar">
+          <h1 class="topbar__title">New Post</h1>
+        </header>
+        <div class="view__body">
+          <p class="placeholder-text">Create and publish content here.</p>
+        </div>
+      </section>
+
+      <!-- ---------------------- DM ------------------------------- -->
+      <section class="view view--dm" data-view="dm">
+        <header class="topbar">
+          <h1 class="topbar__title">Messages</h1>
+        </header>
+        <div class="view__body">
+          <p class="placeholder-text">Your direct messages will appear here.</p>
+        </div>
+      </section>
+
+      <!-- ---------------------- PROFILE -------------------------- -->
+      <section class="view view--profile is-active" data-view="profile">
+
+        <!-- Profile top bar: username + hamburger -->
+        <header class="topbar topbar--profile">
+          <div class="topbar__user">
+            <span class="topbar__lock" aria-hidden="true">&#128274;</span>
+            <h1 class="topbar__username" data-bind="player.username">player1</h1>
+            <span class="topbar__chevron" aria-hidden="true">&#9662;</span>
+          </div>
+          <button class="topbar__menu" type="button" aria-label="Open menu">
+            <span class="hamburger" aria-hidden="true">
+              <span class="hamburger__line"></span>
+              <span class="hamburger__line"></span>
+              <span class="hamburger__line"></span>
+            </span>
+          </button>
+        </header>
+
+        <div class="view__body view__body--profile">
+
+          <!-- ===================== Profile Header ================ -->
+          <section class="profile-header">
+            <!-- Avatar + stats live in one grid row -->
+            <div class="profile-header__grid">
+              <div class="profile-header__avatar profile-header__avatar--verified">
+                <img
+                  class="profile-header__avatar-img"
+                  src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='90'%20height='90'%3E%3Crect%20width='90'%20height='90'%20fill='%23DBDBDB'/%3E%3Ccircle%20cx='45'%20cy='35'%20r='18'%20fill='%23FAFAFA'/%3E%3Crect%20x='18'%20y='58'%20width='54'%20height='34'%20rx='17'%20fill='%23FAFAFA'/%3E%3C/svg%3E"
+                  alt="Profile avatar"
+                />
+              </div>
+
+              <!-- Stats counters : CSS Grid (3 columns) -->
+              <div class="stats">
+                <button class="stats__item" type="button">
+                  <span class="stats__count" data-bind="stats.totalPosts">0</span>
+                  <span class="stats__label">Posts</span>
+                </button>
+                <button class="stats__item" type="button">
+                  <span class="stats__count" data-bind="player.followers">0</span>
+                  <span class="stats__label">Followers</span>
+                </button>
+                <button class="stats__item" type="button">
+                  <span class="stats__count" data-bind="player.following">0</span>
+                  <span class="stats__label">Following</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Bio block -->
+            <div class="profile-bio">
+              <p class="profile-bio__name" data-bind="player.username">player1</p>
+              <p class="profile-bio__category">Digital Creator</p>
+              <p class="profile-bio__text">
+                Just an aspiring creator chasing the algorithm.<br />
+                Building my empire one post at a time.<br />
+                Collab? DM <a class="profile-bio__mention" href="#">@anzyco</a>
+              </p>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="profile-actions">
+              <button class="profile-actions__btn profile-actions__btn--edit" type="button">
+                Edit Profile
+              </button>
+              <button class="profile-actions__btn profile-actions__btn--dashboard" type="button">
+                Professional Dashboard
+              </button>
+            </div>
+          </section>
+
+          <!-- ===================== Feed Tabs ===================== -->
+          <nav class="feed-tabs">
+            <button class="feed-tabs__tab is-active" type="button" aria-label="Grid">
+              <span class="feed-tabs__icon">&#9638;</span>
+            </button>
+            <button class="feed-tabs__tab" type="button" aria-label="Tagged">
+              <span class="feed-tabs__icon">&#128100;</span>
+            </button>
+          </nav>
+
+          <!-- ===================== Feed Grid (3x3) =============== -->
+          <div class="feed-grid">
+            <!-- 9 placeholder tiles -->
+            <div class="feed-grid__item"></div>
+            <div class="feed-grid__item"></div>
+            <div class="feed-grid__item"></div>
+            <div class="feed-grid__item"></div>
+            <div class="feed-grid__item"></div>
+            <div class="feed-grid__item"></div>
+            <div class="feed-grid__item"></div>
+            <div class="feed-grid__item"></div>
+            <div class="feed-grid__item"></div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ========================================================= -->
+    <!-- BOTTOM NAVIGATION : Flexbox, 5 tabs                       -->
+    <!-- ========================================================= -->
+    <nav class="nav">
+      <button class="nav__tab nav__tab--home" type="button" data-route="home" aria-label="Home">
+        <span class="nav__icon">&#127968;</span>
+      </button>
+      <button class="nav__tab nav__tab--search" type="button" data-route="search" aria-label="Search">
+        <span class="nav__icon">&#128269;</span>
+      </button>
+      <button class="nav__tab nav__tab--post" type="button" data-route="post" aria-label="Create post">
+        <span class="nav__icon nav__icon--post">&#10010;</span>
+      </button>
+      <button class="nav__tab nav__tab--dm" type="button" data-route="dm" aria-label="Messages">
+        <span class="nav__icon">&#9993;</span>
+      </button>
+      <button class="nav__tab nav__tab--profile is-active" type="button" data-route="profile" aria-label="Profile">
+        <span class="nav__icon nav__icon--avatar"></span>
+      </button>
+    </nav>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
