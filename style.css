@@ -837,3 +837,455 @@ img {
   from { opacity: 0; transform: translateY(12px) scale(0.96); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+
+/* ========================================================= */
+/* NAV BADGE (unread DM count)                               */
+/* ========================================================= */
+.nav__tab {
+  position: relative;
+}
+
+.nav__badge {
+  position: absolute;
+  top: 6px;
+  right: calc(50% - 18px);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background-color: var(--ig-danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--ig-surface);
+}
+
+/* ========================================================= */
+/* DM TAB : Instagram Direct-style negotiation chat          */
+/* ========================================================= */
+.topbar--dm {
+  justify-content: space-between;
+}
+
+.topbar__hint {
+  font-size: 12px;
+  color: var(--ig-text-secondary);
+  font-weight: 600;
+}
+
+.view__body--dm {
+  background-color: var(--ig-bg);
+}
+
+/* Empty state */
+.dm-empty {
+  text-align: center;
+  padding: 56px 28px;
+  color: var(--ig-text-secondary);
+}
+
+.dm-empty__icon {
+  font-size: 40px;
+}
+
+.dm-empty__title {
+  margin-top: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ig-text);
+}
+
+.dm-empty__text {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Conversation list */
+.dm-list {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dm-convo {
+  background-color: var(--ig-surface);
+  border: 1px solid var(--ig-border);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.dm-convo__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ig-border);
+  margin-bottom: 10px;
+}
+
+.dm-convo__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  color: #fff;
+  background: var(--ig-ring);
+  flex: 0 0 auto;
+}
+
+.dm-convo__meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.dm-convo__name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.dm-convo__sub {
+  font-size: 12px;
+  color: var(--ig-text-secondary);
+}
+
+/* Chat bubbles */
+.dm-bubble {
+  max-width: 85%;
+  padding: 9px 13px;
+  font-size: 13px;
+  line-height: 1.4;
+  border-radius: 18px;
+  margin-bottom: 6px;
+}
+
+.dm-bubble--in {
+  background-color: var(--ig-grey-btn);
+  color: var(--ig-text);
+  border-bottom-left-radius: 5px;
+  align-self: flex-start;
+}
+
+.dm-bubble--out {
+  background-color: var(--ig-blue);
+  color: #fff;
+  border-bottom-right-radius: 5px;
+  margin-left: auto;
+}
+
+/* Negotiation action buttons */
+.dm-convo__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.dm-btn {
+  flex: 1 1 50%;
+  height: 38px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  transition: background-color 0.12s ease, opacity 0.12s ease;
+}
+
+.dm-btn--accept {
+  background-color: var(--ig-blue);
+  color: #fff;
+}
+
+.dm-btn--accept:active {
+  background-color: var(--ig-blue-press);
+}
+
+.dm-btn--counter {
+  background-color: var(--ig-grey-btn);
+  color: var(--ig-text);
+  border: 1px solid var(--ig-border);
+}
+
+.dm-btn--counter:active {
+  background-color: var(--ig-grey-btn-press);
+}
+
+/* ========================================================= */
+/* TYCOON DASHBOARD : full-screen E-Commerce overlay         */
+/* ========================================================= */
+.tycoon {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: var(--app-max-width);
+  margin: 0 auto;
+  background-color: var(--ig-bg);
+  animation: tycoon-slide 0.25s ease;
+}
+
+.tycoon[hidden] {
+  display: none;
+}
+
+.tycoon__topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  padding: 0 8px;
+  background-color: var(--ig-surface);
+  border-bottom: 1px solid var(--ig-border);
+}
+
+.tycoon__back {
+  width: 40px;
+  height: 40px;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--ig-text);
+}
+
+.tycoon__title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.tycoon__spacer {
+  width: 40px;
+}
+
+.tycoon__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+}
+
+/* Locked / launch states */
+.tycoon-locked,
+.tycoon-launch {
+  text-align: center;
+  padding: 40px 18px;
+}
+
+.tycoon-locked__icon,
+.tycoon-launch__icon {
+  font-size: 44px;
+}
+
+.tycoon-locked__title,
+.tycoon-launch__title {
+  margin-top: 14px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.tycoon-locked__text,
+.tycoon-launch__text {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ig-text-secondary);
+}
+
+.tycoon-launch__input {
+  width: 100%;
+  height: 42px;
+  margin-top: 18px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--ig-border);
+  background-color: var(--ig-surface);
+  font-size: 14px;
+  color: var(--ig-text);
+  outline: none;
+}
+
+.tycoon-launch__input:focus {
+  border-color: var(--ig-blue);
+}
+
+/* Brand banner */
+.tycoon-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  color: #fff;
+  background: linear-gradient(120deg, #262626, #3a3a3a);
+  margin-bottom: 16px;
+}
+
+.tycoon-banner__logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 800;
+  background: var(--ig-ring);
+  flex: 0 0 auto;
+}
+
+.tycoon-banner__meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.tycoon-banner__name {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.tycoon-banner__sub {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* KPI grid : CSS Grid (2 columns) */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.kpi {
+  background-color: var(--ig-surface);
+  border: 1px solid var(--ig-border);
+  border-radius: 12px;
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kpi__value {
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi__label {
+  font-size: 12px;
+  color: var(--ig-text-secondary);
+}
+
+.kpi--green .kpi__value {
+  color: #2EA37C;
+}
+
+.kpi--red .kpi__value {
+  color: var(--ig-danger);
+}
+
+/* Projected sales line */
+.tycoon-proj {
+  font-size: 13px;
+  color: var(--ig-text);
+  margin-bottom: 14px;
+}
+
+.tycoon-proj__warn {
+  color: var(--ig-danger);
+  font-weight: 700;
+}
+
+/* Dispute alert */
+.tycoon-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background-color: #FDECEA;
+  border: 1px solid #F5C2BD;
+  margin-bottom: 14px;
+}
+
+.tycoon-alert__icon {
+  font-size: 20px;
+}
+
+.tycoon-alert__body {
+  flex: 1 1 160px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #8A2A22;
+}
+
+/* Tycoon controls */
+.tycoon-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.tycoon-btn {
+  flex: 1 1 50%;
+  min-height: 48px;
+  border-radius: 11px;
+  background-color: var(--ig-surface);
+  border: 1px solid var(--ig-border);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ig-text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: background-color 0.12s ease, opacity 0.12s ease;
+}
+
+.tycoon-btn small {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ig-text-secondary);
+}
+
+.tycoon-btn:active {
+  background-color: var(--ig-grey-btn);
+}
+
+.tycoon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tycoon-btn--primary {
+  background-color: var(--ig-blue);
+  color: #fff;
+  border-color: var(--ig-blue);
+  margin-top: 18px;
+}
+
+.tycoon-btn--danger {
+  background-color: var(--ig-danger);
+  color: #fff;
+  border-color: var(--ig-danger);
+  flex: 1 1 100%;
+  min-height: 42px;
+}
+
+.tycoon-btn--danger:disabled {
+  opacity: 0.5;
+}
+
+@keyframes tycoon-slide {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
