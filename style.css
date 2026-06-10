@@ -1289,3 +1289,255 @@ img {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+
+/* ========================================================= */
+/* HOME TAB : procedural NPC feed + infinite scroll          */
+/* ========================================================= */
+.view__body--home {
+  background-color: var(--ig-bg);
+}
+
+.feed {
+  display: flex;
+  flex-direction: column;
+}
+
+.npc-post {
+  background-color: var(--ig-surface);
+  border-bottom: 1px solid var(--ig-border);
+  padding-bottom: 10px;
+}
+
+.npc-post__header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+}
+
+.npc-post__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  flex: 0 0 auto;
+}
+
+.npc-post__user {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ig-text);
+}
+
+.npc-post__time {
+  font-size: 13px;
+  color: var(--ig-text-secondary);
+}
+
+.npc-post__more {
+  margin-left: auto;
+  font-size: 18px;
+  color: var(--ig-text);
+  letter-spacing: 1px;
+}
+
+/* Procedural image block (4:5 portrait, IG-style) */
+.npc-post__image {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  background-color: var(--ig-border);
+}
+
+.npc-post__actions {
+  display: flex;
+  gap: 14px;
+  padding: 9px 12px 4px;
+  font-size: 22px;
+  color: var(--ig-text);
+}
+
+.npc-post__icon {
+  line-height: 1;
+  cursor: pointer;
+}
+
+.npc-post__likes {
+  padding: 2px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ig-text);
+}
+
+.npc-post__caption {
+  padding: 2px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ig-text);
+}
+
+.npc-post__caption strong {
+  font-weight: 600;
+}
+
+/* Infinite-scroll loader */
+.feed__loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px;
+  font-size: 13px;
+  color: var(--ig-text-secondary);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.feed__loader.is-active {
+  opacity: 1;
+}
+
+.feed__spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--ig-border);
+  border-top-color: var(--ig-text-secondary);
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ========================================================= */
+/* SEARCH TAB : trending grid                                */
+/* ========================================================= */
+.view__body--search {
+  background-color: var(--ig-bg);
+  padding: 14px 12px 20px;
+}
+
+.explore-heading {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+/* Trending thumbnails : CSS Grid */
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+/* First trend spans the full row for a "hero" feel */
+.trend:first-child {
+  grid-column: 1 / -1;
+  aspect-ratio: 16 / 9;
+}
+
+.trend {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+  box-shadow: var(--shadow-soft);
+}
+
+/* readability scrim + text overlay */
+.trend__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 3px;
+  padding: 12px;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.6) 0%,
+    rgba(0, 0, 0, 0.1) 55%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
+.trend__category {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  opacity: 0.9;
+}
+
+.trend__topic {
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.trend__heat {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.95;
+}
+
+/* ========================================================= */
+/* POST TAB : trend rider chips                              */
+/* ========================================================= */
+.post-form__hint {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ig-text-secondary);
+}
+
+.trend-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.trend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--ig-border);
+  background-color: var(--ig-surface);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ig-text);
+  transition: background-color 0.12s ease, border-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.trend-chip__boost {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background-color: #FDE7E9;
+  color: var(--ig-danger);
+}
+
+.trend-chip.is-active {
+  background-color: var(--ig-text);
+  border-color: var(--ig-text);
+  color: #fff;
+}
+
+.trend-chip.is-active .trend-chip__boost {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}

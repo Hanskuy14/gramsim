@@ -23,8 +23,12 @@
         <header class="topbar">
           <h1 class="topbar__brand">Influencer Simulator</h1>
         </header>
-        <div class="view__body">
-          <p class="placeholder-text">Your home feed will appear here.</p>
+        <div class="view__body view__body--home" data-home-scroll>
+          <div class="feed" data-home-feed></div>
+          <div class="feed__loader" data-home-loader>
+            <span class="feed__spinner" aria-hidden="true"></span>
+            <span>Loading more posts&hellip;</span>
+          </div>
         </div>
       </section>
 
@@ -36,8 +40,10 @@
             <input class="searchbar__input" type="text" placeholder="Search" disabled />
           </div>
         </header>
-        <div class="view__body">
-          <p class="placeholder-text">Explore trending creators here.</p>
+        <div class="view__body view__body--search">
+          <p class="explore-heading">Trending now</p>
+          <!-- Trending grid (injected + rerolled by app.js) -->
+          <div class="trend-grid" data-trend-grid></div>
         </div>
       </section>
 
@@ -82,6 +88,9 @@
 
           <!-- Post creation mini-game form -->
           <form class="post-form" data-post-form>
+            <p class="post-form__title">Ride a trend <span class="post-form__hint">(optional &middot; 3x reach)</span></p>
+            <div class="trend-chips" data-post-trends></div>
+
             <p class="post-form__title">Pick your hook</p>
 
             <!-- Hook cards are injected here by app.js -->
