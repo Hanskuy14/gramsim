@@ -35,6 +35,23 @@
     inventory: {
       unlockedGear: ["Basic Smartphone"],
     },
+    // Incoming sponsorship negotiations (DM tab).
+    dm: {
+      offers: [],
+      nextId: 1,
+    },
+    // Late-game Apparel e-commerce tycoon module.
+    ecommerce: {
+      launched: false,
+      subBrandName: null,
+      coFounder: "Zacky",
+      stockLevel: 0,
+      adBudget: 0.0,
+      customerRating: 5.0,
+      totalReviews: 0,
+      revenue: 0.0,
+      disputeActive: false,
+    },
   };
 
   /* ===========================================================
@@ -246,19 +263,38 @@
     return Math.round(n).toLocaleString("en-US");
   }
 
+  // Currency formatter (e.g. $1,250 or $1,250.50).
+  function money(n, decimals) {
+    return (
+      "$" +
+      Number(n).toLocaleString("en-US", {
+        minimumFractionDigits: decimals || 0,
+        maximumFractionDigits: decimals || 0,
+      })
+    );
+  }
+
   /* ===========================================================
    * 6. CORE GAME LOOP (Engine)
    * ===========================================================
    * 1 real second === 1 in-game hour. Each tick applies passive
-   * regeneration. Energy recovers slowly when burnt out.
+   * regeneration then fans out to registered tick handlers
+   * (negotiations, e-commerce, etc.).
    */
   var Engine = {
     state: null,
     intervalId: null,
     TICK_MS: 1000,
+    _handlers: [],
 
     init: function (state) {
       this.state = state;
+      return this;
+    },
+
+    // Register a callback invoked every tick: fn(state, engine).
+    onTick: function (fn) {
+      this._handlers.push(fn);
       return this;
     },
 
@@ -271,6 +307,16 @@
       if (next !== p.energy) {
         p.energy = next; // proxy fires DOM update
       }
+
+      // Fan out to subsystems.
+      var self = this;
+      this._handlers.forEach(function (fn) {
+        try {
+          fn(self.state, self);
+        } catch (err) {
+          console.error("Engine tick handler error:", err);
+        }
+      });
     },
 
     start: function () {
@@ -622,7 +668,620 @@
   }
 
   /* ===========================================================
-   * 11. BOOTSTRAP
+   * 11. CONSTANTS (tycoon / negotiation tuning)
+   * ===========================================================
+   */
+  var OFFER_CHANCE_PER_TICK = 0.02; // 2% per tick
+  var COUNTER_MULTIPLIER = 1.3; // +30%
+  var ECOM_UNLOCK_FOLLOWERS = 500000;
+  var APPAREL_UNIT_PRICE = 35; // $ per unit sold
+  var RESTOCK_UNITS = 100;
+  var RESTOCK_COST = 600; // $ per restock
+  var AD_BUDGET_STEP = 50; // $ added per ad spend
+  var DISPUTE_ENERGY_COST = 20; // energy to resolve a dispute
+  var RATING_DROP = 0.2; // negative review damage
+  var RATING_RESTORE = 0.3; // recovered on dispute resolve
+  var NEGATIVE_REVIEW_CHANCE = 0.05; // 5% per tick
+
+  // Brand pool for procedurally generated sponsorship offers.
+  var BRAND_POOL = [
+    { brandName: "Toko FDS", baseOffer: 5000, requirement: "Maintain 80+ Reputation" },
+    { brandName: "NovaWear", baseOffer: 3200, requirement: "Post 3x this week" },
+    { brandName: "HydroFuel", baseOffer: 7500, requirement: "Keep 50k+ Followers" },
+    { brandName: "PixelKicks", baseOffer: 4200, requirement: "Maintain 70+ Reputation" },
+    { brandName: "AuraSkincare", baseOffer: 6100, requirement: "1 dedicated Reel" },
+    { brandName: "ByteSnacks", baseOffer: 2800, requirement: "Tag us in 2 stories" },
+  ];
+
+  /* ===========================================================
+   * 12. PROFILE BIO SPONSORS
+   * ===========================================================
+   * Renders signed sponsors into the bio as blue mentions.
+   */
+  function renderSponsors(state) {
+    var el = document.querySelector("[data-bio-sponsors]");
+    if (!el) return;
+    var sponsors = state.data.relationships.activeSponsors;
+
+    if (!sponsors.length) {
+      el.hidden = true;
+      el.innerHTML = "";
+      return;
+    }
+
+    el.hidden = false;
+    el.innerHTML = "";
+    var prefix = document.createTextNode("\uD83E\uDD1D Sponsored by ");
+    el.appendChild(prefix);
+    sponsors.forEach(function (s, i) {
+      var span = document.createElement("span");
+      span.className = "profile-bio__mention";
+      span.textContent = "@" + s.brandName.replace(/\s+/g, "");
+      el.appendChild(span);
+      if (i < sponsors.length - 1) {
+        el.appendChild(document.createTextNode(", "));
+      }
+    });
+  }
+
+  /* ===========================================================
+   * 13. DM NEGOTIATION SYSTEM
+   * ===========================================================
+   * Generates sponsorship offers and resolves counter-offers.
+   */
+  var Negotiation = {
+    state: null,
+
+    init: function (state) {
+      this.state = state;
+      this.bodyEl = document.querySelector(".view__body--dm");
+      this.emptyEl = document.querySelector("[data-dm-empty]");
+      this.listEl = document.querySelector("[data-dm-list]");
+      this.badgeEl = document.querySelector("[data-dm-badge]");
+      this.render();
+      return this;
+    },
+
+    // Engine tick handler: 2% chance to spawn a new offer.
+    maybeGenerateOffer: function (state) {
+      if (Math.random() >= OFFER_CHANCE_PER_TICK) return;
+
+      var template = BRAND_POOL[Math.floor(Math.random() * BRAND_POOL.length)];
+      var dm = state.data.dm;
+
+      // Avoid duplicate live offers from the same brand.
+      var exists = dm.offers.some(function (o) {
+        return o.brandName === template.brandName;
+      });
+      if (exists) return;
+
+      var offer = {
+        id: dm.nextId,
+        brandName: template.brandName,
+        baseOffer: template.baseOffer,
+        currentOffer: template.baseOffer,
+        requirement: template.requirement,
+        status: "pending", // pending | signed | rejected
+      };
+      dm.nextId = dm.nextId + 1;
+      // push triggers a proxy notification on dm.offers
+      dm.offers.push(offer);
+
+      this.render();
+    },
+
+    findOffer: function (id) {
+      return this.state.data.dm.offers.filter(function (o) {
+        return o.id === id;
+      })[0];
+    },
+
+    // Accept the current offer outright (no risk).
+    accept: function (id) {
+      var offer = this.findOffer(id);
+      if (!offer || offer.status !== "pending") return;
+      this.sign(offer, offer.currentOffer, false);
+    },
+
+    // Risky counter at +30%: success scales by reputation.
+    counter: function (id) {
+      var offer = this.findOffer(id);
+      if (!offer || offer.status !== "pending") return;
+
+      var rep = this.state.data.player.reputation;
+      var success = (rep / 100) * 0.7 > Math.random();
+
+      if (success) {
+        var raised = Math.round(offer.currentOffer * COUNTER_MULTIPLIER);
+        offer.currentOffer = raised;
+        this.sign(offer, raised, true);
+      } else {
+        // Brand walks away: offer is deleted.
+        this.removeOffer(id);
+        this.render();
+        Modal.show({
+          emoji: "\uD83D\uDE2C",
+          title: "Negotiation Failed",
+          subtitle:
+            offer.brandName + " didn't appreciate the counter and walked away.",
+          backlash: true,
+          rows: [
+            { label: "\uD83D\uDCB8 Deal lost", value: money(offer.baseOffer), type: "loss" },
+          ],
+        });
+      }
+    },
+
+    // Sign the deal: pay out, record sponsor, inject into bio.
+    sign: function (offer, amount, wasCountered) {
+      var state = this.state;
+      offer.status = "signed";
+
+      state.data.player.balance = state.data.player.balance + amount;
+      state.data.relationships.activeSponsors.push({
+        brandName: offer.brandName,
+        amount: amount,
+        requirement: offer.requirement,
+      });
+
+      this.removeOffer(offer.id);
+      renderSponsors(state);
+      this.render();
+
+      Modal.show({
+        emoji: "\uD83E\uDD1D",
+        title: "Deal Signed!",
+        subtitle:
+          offer.brandName +
+          (wasCountered ? " accepted your counter offer." : " is now a sponsor."),
+        backlash: false,
+        rows: [
+          { label: "\uD83D\uDCB0 Payout", value: "+" + money(amount), type: "gain" },
+          { label: "\uD83D\uDCDD Requirement", value: offer.requirement, type: "" },
+        ],
+      });
+    },
+
+    removeOffer: function (id) {
+      var offers = this.state.data.dm.offers;
+      var idx = -1;
+      for (var i = 0; i < offers.length; i++) {
+        if (offers[i].id === id) {
+          idx = i;
+          break;
+        }
+      }
+      if (idx > -1) offers.splice(idx, 1);
+    },
+
+    updateBadge: function () {
+      if (!this.badgeEl) return;
+      var count = this.state.data.dm.offers.length;
+      this.badgeEl.textContent = count;
+      this.badgeEl.hidden = count === 0;
+    },
+
+    render: function () {
+      var self = this;
+      var offers = this.state.data.dm.offers;
+      this.updateBadge();
+
+      this.emptyEl.hidden = offers.length > 0;
+      this.listEl.hidden = offers.length === 0;
+      this.listEl.innerHTML = "";
+
+      offers.forEach(function (offer) {
+        self.listEl.appendChild(self.buildConversation(offer));
+      });
+    },
+
+    // Build one IG-Direct-style conversation block.
+    buildConversation: function (offer) {
+      var convo = document.createElement("article");
+      convo.className = "dm-convo";
+
+      // Header: brand avatar + name
+      var header = document.createElement("header");
+      header.className = "dm-convo__header";
+
+      var avatar = document.createElement("span");
+      avatar.className = "dm-convo__avatar";
+      avatar.textContent = offer.brandName.charAt(0);
+
+      var nameWrap = document.createElement("div");
+      nameWrap.className = "dm-convo__meta";
+      var name = document.createElement("span");
+      name.className = "dm-convo__name";
+      name.textContent = offer.brandName;
+      var sub = document.createElement("span");
+      sub.className = "dm-convo__sub";
+      sub.textContent = "Brand \u00B7 Active now";
+      nameWrap.appendChild(name);
+      nameWrap.appendChild(sub);
+
+      header.appendChild(avatar);
+      header.appendChild(nameWrap);
+
+      // Message bubbles (incoming)
+      var msg1 = document.createElement("p");
+      msg1.className = "dm-bubble dm-bubble--in";
+      msg1.textContent =
+        "Hey! We're " + offer.brandName + " \uD83D\uDC4B We'd love to partner with you.";
+
+      var msg2 = document.createElement("p");
+      msg2.className = "dm-bubble dm-bubble--in";
+      msg2.textContent =
+        "Our offer is " + money(offer.currentOffer) + ". Requirement: " + offer.requirement + ".";
+
+      // Action buttons
+      var actions = document.createElement("div");
+      actions.className = "dm-convo__actions";
+
+      var acceptBtn = document.createElement("button");
+      acceptBtn.type = "button";
+      acceptBtn.className = "dm-btn dm-btn--accept";
+      acceptBtn.textContent = "Accept " + money(offer.currentOffer);
+      acceptBtn.addEventListener("click", function () {
+        Negotiation.accept(offer.id);
+      });
+
+      var counterBtn = document.createElement("button");
+      counterBtn.type = "button";
+      counterBtn.className = "dm-btn dm-btn--counter";
+      counterBtn.textContent = "Counter Offer (+30%)";
+      counterBtn.addEventListener("click", function () {
+        Negotiation.counter(offer.id);
+      });
+
+      actions.appendChild(acceptBtn);
+      actions.appendChild(counterBtn);
+
+      convo.appendChild(header);
+      convo.appendChild(msg1);
+      convo.appendChild(msg2);
+      convo.appendChild(actions);
+      return convo;
+    },
+  };
+
+  /* ===========================================================
+   * 14. E-COMMERCE TYCOON (engine-side simulation)
+   * ===========================================================
+   */
+  var Ecommerce = {
+    state: null,
+
+    init: function (state) {
+      this.state = state;
+      return this;
+    },
+
+    isUnlocked: function () {
+      return this.state.data.player.followers >= ECOM_UNLOCK_FOLLOWERS;
+    },
+
+    launch: function (brandName) {
+      var e = this.state.data.ecommerce;
+      if (e.launched) return;
+      e.subBrandName = brandName || e.coFounder + " x " + this.state.data.player.username;
+      e.launched = true;
+      e.stockLevel = RESTOCK_UNITS;
+      e.adBudget = 100;
+
+      // Bring the co-founder NPC on board.
+      var founders = this.state.data.relationships.coFounders;
+      if (founders.indexOf(e.coFounder) === -1) {
+        founders.push(e.coFounder);
+      }
+    },
+
+    restock: function () {
+      var e = this.state.data.ecommerce;
+      var p = this.state.data.player;
+      if (p.balance < RESTOCK_COST) return false;
+      p.balance = p.balance - RESTOCK_COST;
+      e.stockLevel = e.stockLevel + RESTOCK_UNITS;
+      return true;
+    },
+
+    boostAds: function () {
+      var e = this.state.data.ecommerce;
+      var p = this.state.data.player;
+      if (p.balance < AD_BUDGET_STEP) return false;
+      p.balance = p.balance - AD_BUDGET_STEP;
+      e.adBudget = e.adBudget + AD_BUDGET_STEP;
+      return true;
+    },
+
+    resolveDispute: function () {
+      var e = this.state.data.ecommerce;
+      var p = this.state.data.player;
+      if (!e.disputeActive || p.energy < DISPUTE_ENERGY_COST) return false;
+      p.energy = clamp(p.energy - DISPUTE_ENERGY_COST, 0, 100);
+      e.customerRating = clamp(e.customerRating + RATING_RESTORE, 1, 5);
+      e.disputeActive = false;
+      return true;
+    },
+
+    // Estimated revenue per tick at current settings.
+    projectedSales: function () {
+      var e = this.state.data.ecommerce;
+      return e.adBudget * 0.5 * (e.customerRating / 5.0);
+    },
+
+    // Engine tick handler: passive sales + review RNG.
+    tick: function (state) {
+      var e = state.data.ecommerce;
+      if (!e.launched || e.stockLevel <= 0) {
+        // Even with no stock, a bad review can still land.
+        if (e.launched) this.maybeNegativeReview(state);
+        return;
+      }
+
+      // Sales = (adBudget * 0.5) * (customerRating / 5.0)
+      var salesRevenue = e.adBudget * 0.5 * (e.customerRating / 5.0);
+      var unitsSold = Math.min(
+        e.stockLevel,
+        Math.max(0, Math.round(salesRevenue / APPAREL_UNIT_PRICE))
+      );
+
+      if (unitsSold > 0) {
+        var earned = unitsSold * APPAREL_UNIT_PRICE;
+        e.stockLevel = e.stockLevel - unitsSold;
+        e.revenue = e.revenue + earned;
+        state.data.player.balance = state.data.player.balance + earned;
+
+        // Reviews scale with sales (climbs toward 1500+ over time).
+        var newReviews = Math.max(1, Math.round(unitsSold * 0.6));
+        e.totalReviews = e.totalReviews + newReviews;
+      }
+
+      this.maybeNegativeReview(state);
+    },
+
+    maybeNegativeReview: function (state) {
+      var e = state.data.ecommerce;
+      if (Math.random() < NEGATIVE_REVIEW_CHANCE) {
+        e.customerRating = clamp(e.customerRating - RATING_DROP, 1, 5);
+        e.totalReviews = e.totalReviews + 1;
+        e.disputeActive = true;
+      }
+    },
+  };
+
+  /* ===========================================================
+   * 15. TYCOON DASHBOARD UI (full-screen overlay)
+   * ===========================================================
+   */
+  var Tycoon = {
+    state: null,
+    isOpen: false,
+
+    init: function (state, ecommerce) {
+      this.state = state;
+      this.ecommerce = ecommerce;
+      this.el = document.querySelector("[data-tycoon]");
+      this.bodyEl = document.querySelector("[data-tycoon-body]");
+
+      var self = this;
+      document.querySelectorAll("[data-tycoon-close]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          self.close();
+        });
+      });
+
+      // Live-refresh while open.
+      state.subscribe(function (path) {
+        if (!self.isOpen) return;
+        if (
+          path.indexOf("ecommerce.") === 0 ||
+          path === "player.balance" ||
+          path === "player.energy" ||
+          path === "player.followers"
+        ) {
+          self.render();
+        }
+      });
+      return this;
+    },
+
+    open: function () {
+      this.isOpen = true;
+      this.el.hidden = false;
+      this.render();
+    },
+
+    close: function () {
+      this.isOpen = false;
+      this.el.hidden = true;
+    },
+
+    stars: function (rating) {
+      var full = Math.round(rating);
+      var s = "";
+      for (var i = 0; i < 5; i++) s += i < full ? "\u2605" : "\u2606";
+      return s;
+    },
+
+    render: function () {
+      if (!this.isOpen) return;
+      this.bodyEl.innerHTML = "";
+
+      if (!this.ecommerce.isUnlocked()) {
+        this.bodyEl.appendChild(this.renderLocked());
+      } else if (!this.state.data.ecommerce.launched) {
+        this.bodyEl.appendChild(this.renderLaunch());
+      } else {
+        this.bodyEl.appendChild(this.renderDashboard());
+      }
+    },
+
+    renderLocked: function () {
+      var wrap = document.createElement("div");
+      wrap.className = "tycoon-locked";
+      var followers = this.state.data.player.followers;
+      var remaining = Math.max(0, ECOM_UNLOCK_FOLLOWERS - followers);
+      wrap.innerHTML =
+        '<span class="tycoon-locked__icon">\uD83D\uDD12</span>' +
+        '<h3 class="tycoon-locked__title">Apparel Empire Locked</h3>' +
+        '<p class="tycoon-locked__text">The Professional E-Commerce suite unlocks at <strong>' +
+        fmt(ECOM_UNLOCK_FOLLOWERS) +
+        " followers</strong>.<br/>You have <strong>" +
+        fmt(followers) +
+        "</strong> \u2014 " +
+        fmt(remaining) +
+        " to go.</p>";
+      return wrap;
+    },
+
+    renderLaunch: function () {
+      var self = this;
+      var e = this.state.data.ecommerce;
+      var wrap = document.createElement("div");
+      wrap.className = "tycoon-launch";
+      wrap.innerHTML =
+        '<span class="tycoon-launch__icon">\uD83D\uDC55</span>' +
+        '<h3 class="tycoon-launch__title">Launch an Apparel Sub-brand</h3>' +
+        '<p class="tycoon-launch__text">Partner with your co-founder <strong>' +
+        e.coFounder +
+        "</strong> to launch a clothing line. This starts you with " +
+        RESTOCK_UNITS +
+        " units of stock.</p>";
+
+      var input = document.createElement("input");
+      input.className = "tycoon-launch__input";
+      input.type = "text";
+      input.placeholder = "Sub-brand name (e.g. Zacky Threads)";
+
+      var btn = document.createElement("button");
+      btn.className = "tycoon-btn tycoon-btn--primary";
+      btn.type = "button";
+      btn.textContent = "Launch with " + e.coFounder;
+      btn.addEventListener("click", function () {
+        self.ecommerce.launch(input.value.trim() || null);
+        self.render();
+      });
+
+      wrap.appendChild(input);
+      wrap.appendChild(btn);
+      return wrap;
+    },
+
+    renderDashboard: function () {
+      var self = this;
+      var e = this.state.data.ecommerce;
+      var p = this.state.data.player;
+      var frag = document.createDocumentFragment();
+
+      // Brand banner
+      var banner = document.createElement("div");
+      banner.className = "tycoon-banner";
+      banner.innerHTML =
+        '<span class="tycoon-banner__logo">' +
+        e.subBrandName.charAt(0) +
+        "</span>" +
+        '<div class="tycoon-banner__meta"><span class="tycoon-banner__name">' +
+        e.subBrandName +
+        '</span><span class="tycoon-banner__sub">Co-founded with ' +
+        e.coFounder +
+        "</span></div>";
+      frag.appendChild(banner);
+
+      // KPI grid
+      var grid = document.createElement("div");
+      grid.className = "kpi-grid";
+      var kpis = [
+        { label: "Balance", value: money(p.balance), accent: "green" },
+        { label: "Revenue (total)", value: money(e.revenue), accent: "green" },
+        { label: "Stock Level", value: fmt(e.stockLevel) + " u", accent: e.stockLevel > 0 ? "" : "red" },
+        { label: "Ad Budget", value: money(e.adBudget), accent: "" },
+        { label: "Rating", value: this.stars(e.customerRating) + " " + e.customerRating.toFixed(1), accent: e.customerRating < 4 ? "red" : "" },
+        { label: "Reviews", value: fmt(e.totalReviews), accent: "" },
+      ];
+      kpis.forEach(function (k) {
+        var card = document.createElement("div");
+        card.className = "kpi" + (k.accent ? " kpi--" + k.accent : "");
+        card.innerHTML =
+          '<span class="kpi__value">' +
+          k.value +
+          '</span><span class="kpi__label">' +
+          k.label +
+          "</span>";
+        grid.appendChild(card);
+      });
+      frag.appendChild(grid);
+
+      // Projected sales line
+      var proj = document.createElement("p");
+      proj.className = "tycoon-proj";
+      proj.innerHTML =
+        "\uD83D\uDCC8 Projected sales: <strong>" +
+        money(this.ecommerce.projectedSales(), 2) +
+        "/hr</strong>" +
+        (e.stockLevel <= 0 ? ' \u2014 <span class="tycoon-proj__warn">OUT OF STOCK</span>' : "");
+      frag.appendChild(proj);
+
+      // Dispute alert
+      if (e.disputeActive) {
+        var alert = document.createElement("div");
+        alert.className = "tycoon-alert";
+        alert.innerHTML =
+          '<span class="tycoon-alert__icon">\u26A0\uFE0F</span>' +
+          '<div class="tycoon-alert__body"><strong>Customer dispute!</strong> A negative review dropped your rating. Resolve it (costs ' +
+          DISPUTE_ENERGY_COST +
+          "\u26A1 energy) to recover.</div>";
+        var resolveBtn = document.createElement("button");
+        resolveBtn.className = "tycoon-btn tycoon-btn--danger";
+        resolveBtn.type = "button";
+        resolveBtn.textContent = "Resolve Dispute (" + DISPUTE_ENERGY_COST + "\u26A1)";
+        resolveBtn.disabled = p.energy < DISPUTE_ENERGY_COST;
+        resolveBtn.addEventListener("click", function () {
+          self.ecommerce.resolveDispute();
+          self.render();
+        });
+        alert.appendChild(resolveBtn);
+        frag.appendChild(alert);
+      }
+
+      // Controls
+      var controls = document.createElement("div");
+      controls.className = "tycoon-controls";
+
+      var restockBtn = document.createElement("button");
+      restockBtn.className = "tycoon-btn";
+      restockBtn.type = "button";
+      restockBtn.innerHTML =
+        "Restock +" + RESTOCK_UNITS + "<small>" + money(RESTOCK_COST) + "</small>";
+      restockBtn.disabled = p.balance < RESTOCK_COST;
+      restockBtn.addEventListener("click", function () {
+        self.ecommerce.restock();
+        self.render();
+      });
+
+      var adBtn = document.createElement("button");
+      adBtn.className = "tycoon-btn";
+      adBtn.type = "button";
+      adBtn.innerHTML =
+        "Boost Ads +" + money(AD_BUDGET_STEP) + "<small>" + money(AD_BUDGET_STEP) + "</small>";
+      adBtn.disabled = p.balance < AD_BUDGET_STEP;
+      adBtn.addEventListener("click", function () {
+        self.ecommerce.boostAds();
+        self.render();
+      });
+
+      controls.appendChild(restockBtn);
+      controls.appendChild(adBtn);
+      frag.appendChild(controls);
+
+      var wrap = document.createElement("div");
+      wrap.className = "tycoon-dash";
+      wrap.appendChild(frag);
+      return wrap;
+    },
+  };
+
+  /* ===========================================================
+   * 16. BOOTSTRAP
    * ===========================================================
    */
   function boot() {
@@ -656,13 +1315,37 @@
     Modal.init();
     var postGame = PostGame.init(state);
 
+    // Initialise late-game / negotiation subsystems.
+    var negotiation = Negotiation.init(state);
+    var ecommerce = Ecommerce.init(state);
+    var tycoon = Tycoon.init(state, ecommerce);
+
+    // Paint any pre-existing sponsors into the bio.
+    renderSponsors(state);
+
+    // Open the Tycoon dashboard from the profile button.
+    var dashboardBtn = document.querySelector(".profile-actions__btn--dashboard");
+    if (dashboardBtn) {
+      dashboardBtn.addEventListener("click", function () {
+        tycoon.open();
+      });
+    }
+
     // Refresh the post lock state each time the tab is opened.
     router.onChange(function (route) {
       if (route === "post") postGame.refresh();
+      if (route === "dm") negotiation.render();
     });
 
-    // Start the core game loop (1s = 1 in-game hour).
-    Engine.init(state).start();
+    // Register subsystem tick handlers, then start the loop.
+    Engine.init(state)
+      .onTick(function (s) {
+        negotiation.maybeGenerateOffer(s);
+      })
+      .onTick(function (s) {
+        ecommerce.tick(s);
+      });
+    Engine.start();
 
     // Expose for debugging / future game-loop modules.
     window.IS = {
@@ -670,6 +1353,9 @@
       router: router,
       engine: Engine,
       postGame: postGame,
+      negotiation: negotiation,
+      ecommerce: ecommerce,
+      tycoon: tycoon,
     };
   }
 

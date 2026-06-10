@@ -106,11 +106,24 @@
 
       <!-- ---------------------- DM ------------------------------- -->
       <section class="view view--dm" data-view="dm">
-        <header class="topbar">
-          <h1 class="topbar__title">Messages</h1>
+        <header class="topbar topbar--dm">
+          <h1 class="topbar__title" data-bind="player.username">player1</h1>
+          <span class="topbar__hint">Direct</span>
         </header>
-        <div class="view__body">
-          <p class="placeholder-text">Your direct messages will appear here.</p>
+        <div class="view__body view__body--dm">
+
+          <!-- Empty state -->
+          <div class="dm-empty" data-dm-empty>
+            <span class="dm-empty__icon" aria-hidden="true">&#9993;</span>
+            <p class="dm-empty__title">No messages yet</p>
+            <p class="dm-empty__text">
+              Keep posting and growing. Brands slide into your DMs with
+              sponsorship offers over time.
+            </p>
+          </div>
+
+          <!-- Conversation list (injected by app.js) -->
+          <div class="dm-list" data-dm-list hidden></div>
         </div>
       </section>
 
@@ -173,6 +186,7 @@
                 Building my empire one post at a time.<br />
                 Collab? DM <a class="profile-bio__mention" href="#">@anzyco</a>
               </p>
+              <p class="profile-bio__sponsors" data-bio-sponsors hidden></p>
             </div>
 
             <!-- Action buttons -->
@@ -230,6 +244,7 @@
       </button>
       <button class="nav__tab nav__tab--dm" type="button" data-route="dm" aria-label="Messages">
         <span class="nav__icon">&#9993;</span>
+        <span class="nav__badge" data-dm-badge hidden>0</span>
       </button>
       <button class="nav__tab nav__tab--profile is-active" type="button" data-route="profile" aria-label="Profile">
         <span class="nav__icon nav__icon--avatar"></span>
@@ -254,6 +269,20 @@
 
       <button class="modal__btn" type="button" data-modal-close>Nice!</button>
     </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- TYCOON DASHBOARD : full-screen E-Commerce overlay         -->
+  <!-- ========================================================= -->
+  <div class="tycoon" data-tycoon hidden>
+    <header class="tycoon__topbar">
+      <button class="tycoon__back" type="button" data-tycoon-close aria-label="Close dashboard">
+        &#8249;
+      </button>
+      <h2 class="tycoon__title">Professional Dashboard</h2>
+      <span class="tycoon__spacer" aria-hidden="true"></span>
+    </header>
+    <div class="tycoon__body" data-tycoon-body></div>
   </div>
 
   <script src="app.js"></script>
